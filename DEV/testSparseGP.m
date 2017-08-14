@@ -6,8 +6,8 @@ clear all, close all;
 
 %% Basic parameters
 MAX_NUM_EVAL = 100;         % Maximum allowed function evals
-n_train = 3000;             % Number of training points
-n_train_sparse = 500;       % Number of inducing inputs / size of active set
+n_train = 1000;             % Number of training points
+n_train_sparse = 100;       % Number of inducing inputs / size of active set
 n_test = 5000;              % Number of test points
 n_dim = 10;                  % Size of UF1 problem
 n_responses = 2 ;           % Number of responses for UF1 problem
@@ -52,14 +52,14 @@ hyp.lik = logtheta0(end);
 inf = @infGaussLik;
 
 %% Optimise hyperparameters
-fprintf('Optimising hyperparameters...\n')
-tic;
-hyp = minimize(hyp,@gp,-MAX_NUM_EVAL,inf,mean,cov,lik,X_train,y_train);      % optimise hyperparameters. param -N: gives the maximum allowed function evals
-hyperparam_full_time = toc;
+% fprintf('Optimising hyperparameters...\n')
+% tic;
+% hyp = minimize(hyp,@gp,-MAX_NUM_EVAL,inf,mean,cov,lik,X_train,y_train);      % optimise hyperparameters. param -N: gives the maximum allowed function evals
+% hyperparam_full_time = toc;
 
 %% Full GP
-[ymu,ys2] = gp(hyp,inf,mean,cov,lik,X_train,y_train,X_test);                 % dense prediction
-diff_full = compute_RMSE(ymu,y_test);
+% [ymu,ys2] = gp(hyp,inf,mean,cov,lik,X_train,y_train,X_test);                 % dense prediction
+% diff_full = compute_RMSE(ymu,y_test);
 
 %% Sparse GPs - initial basic settings
 xu = [rand(n_train_sparse,1), rand(n_train_sparse,n_dim-1)*2-1];       % inducing points randomly (n_dimensions, in UF1 design range)
@@ -97,7 +97,7 @@ diff_sparse_spgp = compute_RMSE(ymu_spgp,y_test);
 
 %% Exploring results
 fprintf('Validation results performed on %d test points...\n', n_test)
-fprintf('RMSE for full GP: %f\n', diff_full)
+% fprintf('RMSE for full GP: %f\n', diff_full)
 % fprintf('RMSE for sparse VFE: %f\n', diff_sparse_vfe)
 % fprintf('RMSE for sparse SPEP: %f\n', diff_sparse_spep)
 % fprintf('RMSE for sparse FITC: %f\n', diff_sparse_fitc)
@@ -105,6 +105,6 @@ fprintf('RMSE for full GP: %f\n', diff_full)
 % fprintf('RMSE for sparse unknown: %f\n', diff_sparse_unknown)
 fprintf('RMSE for sparse SPGP: %f\n', diff_sparse_spgp)
 fprintf('\n')
-fprintf('Time taken to optimise hyperparameters for full GP: %fs\n', hyperparam_full_time)
+% fprintf('Time taken to optimise hyperparameters for full GP: %fs\n', hyperparam_full_time)
 fprintf('Time taken to optimise hyperparameters for sparse GP: %fs\n', hyperparam_sparse_time)
 

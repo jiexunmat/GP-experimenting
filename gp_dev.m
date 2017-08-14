@@ -53,6 +53,7 @@ if nargin<7 || nargin>9
   return
 end
 
+%% SETTING UP, defaults
 if isempty(mean), mean = {@meanZero}; end                     % set default mean
 if ischar(mean) || isa(mean, 'function_handle'), mean = {mean}; end  % make cell
 if isempty(cov), error('Covariance function cannot be empty'); end  % no default
@@ -90,6 +91,9 @@ if eval(feval(lik{:})) ~= numel(hyp.lik)
   error('Number of lik function hyperparameters disagree with lik function')
 end
 
+
+
+
 try                                                  % call the inference method
   % issue a warning if a classification likelihood is used in conjunction with
   % labels different from +1 and -1
@@ -105,7 +109,7 @@ try                                                  % call the inference method
     if isstruct(y)
       post = y;            % reuse a previously computed posterior approximation
     else
-      post = feval(inf{:}, hyp, mean, cov, lik, x, y);
+      post = feval(inf{:}, hyp, mean, cov, lik, x, y);  %%% done for prediction. post is struct with L (100x100), alpha (100x1), sW (1000x1)
     end
   else
     if nargout<=1
@@ -122,18 +126,12 @@ catch
   end
 end
 
-% if nargin==8
-%     xdata = cov{3};
-%     logtheta = hyp.cov;
-%     alpha = post.alpha;
-%     likelihood = hyp.lik; % for predicting variance
-%     L = post.L; % for predicting variance
-%     save('sparsegpdata.mat', 'xdata', 'logtheta', 'alpha', 'xs', 'likelihood', 'L');
-% end
+
+%%%% RETURN post above.
 
 if nargin==7                                     % if no test cases are provided
   varargout = {nlZ, dnlZ, post};    % report -log marg lik, derivatives and post
-else
+else                        %%% done for prediction
   alpha = post.alpha; L = post.L; sW = post.sW;
   if issparse(alpha)                  % handle things for sparse representations
     nz = alpha ~= 0;                                 % determine nonzero indices
@@ -159,7 +157,7 @@ else
     else
       Ks = feval(cov{:}, hyp.cov, x(nz,:), xs(id,:));        % avoid computation
     end
-    ms = feval(mean{:}, hyp.mean, xs(id,:));
+    ms = feval(mean{:}, hyp.mean, xs(id,:));              %%% some mean offset?
     N = size(alpha,2);  % number of alphas (usually 1; more in case of sampling)
     Fmu = repmat(ms,1,N) + Ks'*full(alpha(nz,:));        % conditional mean fs|f
     fmu(id) = sum(Fmu,2)/N;                                   % predictive means
