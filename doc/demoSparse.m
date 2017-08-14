@@ -1,5 +1,5 @@
 disp('See http://www.gaussianprocess.org/gpml/code/matlab/doc/ for details.')
-clear all, write_fig = 0; N = 20;
+clear all, write_fig = 0; N = 50;
 sd = 3; rand('seed',sd), randn('seed',sd)       % set a seed for reproducability
 
 fprintf('a) switch between FITC/VFE/SPEP via the opt.s parameter\n')
@@ -74,3 +74,8 @@ if isequal(liktyp,'g')
   nswap = N; % number of swaps between z and hyp.xu 
   [hyp,nlZ] = vfe_xu_opt(hyp,mean,cov,x,y,z,nswap);
 end
+
+
+diff_full = sum(abs(ys-ymu));
+diff_sparse = sum(abs(ys-ymuv));
+fprintf('Discrepancy (full): %f, Discrepancy (sparse): %f\n', diff_full, diff_sparse)

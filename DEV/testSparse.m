@@ -1,8 +1,6 @@
 disp('Testing Sparse GP vs Full GP.')
-clear all, close all, write_fig = 0; N = 100;
+clear all, close all, write_fig = 0; N = 50;    % N is used as number of function evaluations
 sd = 3; rand('seed',sd), randn('seed',sd)       % set a seed for reproducability
-
-% fprintf('a) switch between FITC/VFE/SPEP via the opt.s parameter\n')
 
 %% Setting up data
 % x = load('x');
@@ -51,7 +49,7 @@ fprintf('Optimise hyperparameters.\n')
 tic;
 hyp = minimize(hyp,@gp,-N,inf,mean,cov,lik,x,y);      % optimise hyperparameters. param -N: gives the maximum allowed function evals
 hyper_time = toc;
-fprintf('Hyperparameters optimised in %f seconds.\n', hyper_time)
+fprintf('Full GP hyperparameters optimised in %f seconds.\n', hyper_time)
 
 %% Full GP
 fprintf('Running Full GP.\n')
@@ -65,9 +63,11 @@ diff = sum(abs(ys - ymu));
 fprintf('Discrepancy for full GP: %f\n', diff)
 
 %% Sparse GP
-nu = 50;
+nu = 100;
 xu = [rand(nu,1), rand(nu,n_dim-1)*2-1];      % inducing points (n_dimensions, in UF1 design range)
 cov = {'apxSparse',cov,xu};
+
+hyp.xu = xu;
 
 tic;
 infv  = @(varargin) inf(varargin{:},struct('s',0.0));           % VFE, opt.s = 0
@@ -80,7 +80,13 @@ inff = @(varargin) inf(varargin{:},struct('s',1.0));           % FITC, opt.s = 1
 sparse_time = toc;
 fprintf('Sparse GPs ran in %f seconds.\n', sparse_time)
 
-fprintf('b) we can run sparse EP for FITC, as well\n')
+diff_sparse_v = sum(abs(ys - ymuv));
+diff_sparse_s = sum(abs(ys - ymus));
+diff_sparse_f = sum(abs(ys - ymuf));
+fprintf('\nDiscrepancies for sparse GP: %f, %f, %f\n', diff_sparse_v, diff_sparse_s, diff_sparse_f)
+
+
+% fprintf('b) we can run sparse EP for FITC, as well\n')
 infe = @infFITC_EP; [ymue,ys2e] = gp(hyp,infe,mean,cov,lik,x,y,xs);
 
 
@@ -90,7 +96,7 @@ plot(xs,ymu,'k','LineWidth',2), hold on
 plot(xs,ymuv,'g-.','LineWidth',2)
 plot(xs,ymus,'m:','LineWidth',2)
 plot(xs,ymuf,'c--','LineWidth',2)
-plot(xs,ymue,'y:','LineWidth',2)
+% plot(xs,ymue,'y:','LineWidth',2)
 legend('exact','VFE','SPEP','FITC','FITC_E_P'), title('Predictive mean')
 plot(x,y,'r+'), plot(xs,ys,'r')
 plot(xs,ymu+2*sqrt(ys2),'k'), plot(xs,ymu-2*sqrt(ys2),'k')
@@ -101,30 +107,49 @@ plot(xs,sqrt(ys2),'k','LineWidth',2), hold on
 plot(xs,sqrt(ys2v),'g-.','LineWidth',2)
 plot(xs,sqrt(ys2s),'m:','LineWidth',2)
 plot(xs,sqrt(ys2f),'c--','LineWidth',2)
-plot(xs,sqrt(ys2e),'y:','LineWidth',2)
+% plot(xs,sqrt(ys2e),'y:','LineWidth',2)
 legend('exact','VFE','SPEP','FITC','FITC_E_P'), title('Predictive standard dev')
 xlim([-8,10]), if write_fig, print -depsc f11.eps; end
 
-fprintf('c) specify inducing points via\n')
-fprintf('1) hyp.xu or 2) {''apxSparse'',cov,xu}\n')
-[nlZ1,dnlZ1] = gp(hyp,inf,mean,cov,lik,x,y); dnlZ1
+% fprintf('c) specify inducing points via\n')
+% fprintf('1) hyp.xu or 2) {''apxSparse'',cov,xu}\n')
+% [nlZ1,dnlZ1] = gp(hyp,inf,mean,cov,lik,x,y);
 hyp.xu = xu;
-[nlZ2,dnlZ2] = gp(hyp,inf,mean,cov,lik,x,y); dnlZ2
-fprintf('  The second has priority and\n')
-fprintf('  results in derivatives w.r.t. xu\n')
+% [nlZ2,dnlZ2] = gp(hyp,inf,mean,cov,lik,x,y);
+% fprintf('  The second has priority and\n')
+% fprintf('  results in derivatives w.r.t. xu\n')
 
+
+%% Optimising inducing points together with hyperparameters, and on sparse GP
 fprintf('d) optimise nlZ w.r.t. inducing inputs\n')
 fprintf('   by gradient descent\n')
-hyp = minimize(hyp,@gp,-N,inf,mean,cov,lik,x,y);  % exactly the same as above, except cov is different
+tic;
+hyp = minimize(hyp,@gp,-N,inf,mean,cov,lik,x,y);    % exactly the same as above, except cov is different
+                                                    % hyp.xu has been optimised here
+hyper_time_sparse = toc;
+fprintf('Sparse GP hyperparameters optimised in %f seconds.\n', hyper_time_sparse)
 
-[ymuv,ys2v] = gp(hyp,inf,mean,cov,lik,x,y,xs);
-diff_sparse = sum(abs(ys - ymuv));
-fprintf('Discrepancy for sparse GP: %f\n', diff_sparse)
+[ymu_sparse,ys2_sparse] = gp(hyp,inf,mean,cov,lik,x,y,xs);
+infv  = @(varargin) inf(varargin{:},struct('s',0.0));           % VFE, opt.s = 0
+[ymuv,ys2v] = gp(hyp,infv,mean,cov,lik,x,y,xs);
+infs = @(varargin) inf(varargin{:},struct('s',0.5));           % SPEP, 0<opt.s<1
+[ymus,ys2s] = gp(hyp,infs,mean,cov,lik,x,y,xs);
+inff = @(varargin) inf(varargin{:},struct('s',1.0));           % FITC, opt.s = 1
+[ymuf,ys2f] = gp(hyp,inff,mean,cov,lik,x,y,xs);
+
+diff_sparse_v = sum(abs(ys - ymuv));
+diff_sparse_s = sum(abs(ys - ymus));
+diff_sparse_f = sum(abs(ys - ymuf));
+diff_sparse_hyper = sum(abs(ys - ymu_sparse));
+fprintf('\nDiscrepancies for sparse GP: %f, %f, %f, %f\n', diff_sparse_v, diff_sparse_s, diff_sparse_f, diff_sparse_hyper)
+
+% fprintf('Discrepancy for sparse GP, hyperparameters optimised sparsely: %f\n', diff_sparse_hyper)
 
 %% this part below gives an error
+% Comment: hyp.mean, mean were not initialised
 % if isequal(liktyp,'g')
 %   fprintf('   and by discrete swapping\n')
 %   z = 3*randn(100,1); % candidate inducing points
-%   nswap = N; % number of swaps between z and hyp.xu 
+%   nswap = N; % number of swaps between z and hyp.xu
 %   [hyp,nlZ] = vfe_xu_opt(hyp,mean,cov,x,y,z,nswap);
 % end
