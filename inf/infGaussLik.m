@@ -20,8 +20,12 @@ end
 [m,dm] = feval(mean{:}, hyp.mean, x);           % evaluate mean vector and deriv
 sn2 = exp(2*hyp.lik); W = ones(n,1)/sn2;            % noise variance of likGauss
 K = apx(hyp,cov,x,opt);                        % set up covariance approximation
-[ldB2,solveKiW,dW,dhyp,post.L] = K.fun(W); % obtain functionality depending on W
-
+try
+    [ldB2,solveKiW,dW,dhyp,post.L] = K.fun(W); % obtain functionality depending on W
+catch
+    W = IncreaseNoiseLevel(hyp,n);
+    [ldB2,solveKiW,dW,dhyp,post.L] = K.fun(W); 
+end
 alpha = solveKiW(y-m);
 post.alpha = K.P(alpha);                       % return the posterior parameters
 post.sW = sqrt(W);                              % sqrt of noise precision vector
@@ -32,3 +36,16 @@ if nargout>1                               % do we want the marginal likelihood?
     dnlZ.lik = -sn2*(alpha'*alpha) - 2*sum(dW)/sn2 + n;
   end
 end
+
+function W = IncreaseNoiseLevel(hyp,n)
+% In some cases where noise appears to be very low, the covariance matrix K
+% does not have full rank. This casuses the Cholesky decomposition to fail.
+% Here we artificially saturate the noise level at a minimum bound.
+% RF, 12/03/2010
+
+MINLOGNOISE = -6;
+
+if hyp.lik<MINLOGNOISE; hyp.lik=MINLOGNOISE; end
+sn2 = exp(2*hyp.lik); 
+W = ones(n,1)/sn2;            % noise variance of likGauss
+

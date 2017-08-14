@@ -11,7 +11,7 @@ n_train_sparse = 500;       % Number of inducing inputs / size of active set
 n_test = 5000;              % Number of test points
 n_dim = 10;                  % Size of UF1 problem
 n_responses = 2 ;           % Number of responses for UF1 problem
-sn = 0.5;                   % Noise standard deviation. NOT INCLUDING NOISE for now (CHECK THIS OUT!!)
+%sn = 0.001;                   % Noise standard deviation. NOT INCLUDING NOISE for now (CHECK THIS OUT!!)
 
 %% Setting up data - training and test
 % Create training data 
@@ -47,7 +47,8 @@ cov = {@covSum, {@covSEard,@covNoise}};
 hyp.cov = logtheta0;  
 mean = [];
 lik = {@likGauss};    
-hyp.lik = log(sn); 
+%hyp.lik = log(sn); 
+hyp.lik = logtheta0(end); 
 inf = @infGaussLik;
 
 %% Optimise hyperparameters

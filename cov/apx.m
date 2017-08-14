@@ -157,7 +157,9 @@ function [ldB2,solveKiW,dW,dldB2,L] = ldB2_exact(W,K,dK)
     if nargout>1, Q = U\(L\P); solveKiW = @(r) bsxfun(@times,W,Q*r); end
     if nargout>4, L = -diag(W)*Q; end                              % overwrite L
   else                                                 % symmetric B = I+sW*K*sW
-    sW = sqrt(W); L = chol(eye(n)+sW*sW'.*K);             % Cholesky factor of B
+    sW = sqrt(W); 
+    % Dev: stabilise cholesky decomposition
+    L = chol(eye(n)+sW*sW'.*K);             % Cholesky factor of B
     ldB2 = sum(log(diag(L)));                                    % log(det(B))/2
     solveKiW = @(r) bsxfun(@times,solve_chol(L,bsxfun(@times,r,sW)),sW);
     if nargout>2, Q = bsxfun(@times,1./sW,solve_chol(L,diag(sW))); end
