@@ -23,7 +23,7 @@ K = apx(hyp,cov,x,opt);                        % set up covariance approximation
 try
     [ldB2,solveKiW,dW,dhyp,post.L] = K.fun(W); % obtain functionality depending on W
 catch
-    [K, W] = IncreaseNoiseLevel(hyp,cov,x,opt,n);
+    K = IncreaseNoiseLevel(hyp,cov,x,opt);
     [ldB2,solveKiW,dW,dhyp,post.L] = K.fun(W); 
 end
 alpha = solveKiW(y-m);
@@ -37,7 +37,7 @@ if nargout>1                               % do we want the marginal likelihood?
   end
 end
 
-function [K, W] = IncreaseNoiseLevel(hyp,cov,x,opt,n)
+function K = IncreaseNoiseLevel(hyp,cov,x,opt)
 % In some cases where noise appears to be very low, the covariance matrix K
 % does not have full rank. This casuses the Cholesky decomposition to fail.
 % Here we artificially saturate the noise level at a minimum bound.
@@ -45,9 +45,6 @@ function [K, W] = IncreaseNoiseLevel(hyp,cov,x,opt,n)
 
 MINLOGNOISE = -6;
 
-if hyp.lik<MINLOGNOISE; hyp.lik=MINLOGNOISE; end
-sn2 = exp(2*hyp.lik); 
-W = ones(n,1)/sn2;            % noise variance of likGauss
-hyp.cov(end) = hyp.lik;
+if hyp.cov(end)<MINLOGNOISE; hyp.cov(end)=MINLOGNOISE; end
 K = apx(hyp,cov,x,opt);
 

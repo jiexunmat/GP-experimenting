@@ -5,8 +5,8 @@ clear all, close all;
 %sd = 3; rand('seed',sd), randn('seed',sd)       % set a seed for reproducability
 
 %% Basic parameters
-MAX_NUM_EVAL_FULL = 100;        % Maximum allowed function evals for full GP
-MAX_NUM_EVAL_SPARSE = 200;      % Maximum allowed function evals for sparse GP
+MAX_NUM_EVAL_FULL = 50;         % Maximum allowed function evals for full GP
+MAX_NUM_EVAL_SPARSE = 100;      % Maximum allowed function evals for sparse GP
 n_train = 3000;                 % Number of training points
 n_train_sparse = 500;           % Number of inducing inputs / size of active set
 n_test = 5000;                  % Number of test points
@@ -14,6 +14,7 @@ n_dim = 10;                     % Size of UF1 problem
 n_responses = 2 ;               % Number of responses for UF1 problem
 %sn = 0.001;                    % Noise standard deviation. NOT INCLUDING NOISE for now (CHECK THIS OUT!!)
 
+useOld = 1;
 %% Setting up data - training and test
 % Create training data 
 lb = zeros(1,n_dim);
@@ -50,7 +51,21 @@ mean = [];
 lik = {@likGauss};    
 hyp.lik = logtheta0(end); 
 inf = @infGaussLik;
+%inf  = @(varargin) inf(varargin{:},struct('s',0.2));   
 
+%% Use old GP method
+if useOld
+    gpoptions.covfunc = {'covSum', {'covSEard','covNoise'}};
+    gpoptions.logtheta0 = logtheta0;
+    fprintf('Optimising hyperparameters for old GP...\n')
+    tic;
+	gpdata = gaussianprocessregression('Train', X_train, y_train, gpoptions);
+    hyperparam_old_time = toc;
+    
+    % Generate predictions
+    ymu_old = gaussianprocessregression('Evaluate', X_test, gpdata);
+    diff_old = compute_RMSE(ymu_old,y_test);
+end
 %% Full GP
 % Optimise hyperparameters
 fprintf('Optimising hyperparameters for full GP...\n')
@@ -65,17 +80,15 @@ diff_full = compute_RMSE(ymu,y_test);
 %% Reset hyperparameters for sparse GP
 % Use covariance function (from Swordfish)
 cov = {@covSum, {@covSEard,@covNoise}}; 
-hyp.cov = logtheta0;  
-mean = [];
-lik = {@likGauss};    
+hyp.cov = logtheta0;   
 hyp.lik = logtheta0(end); 
-inf = @infGaussLik;
 
 %% Sparse GPs - initial basic settings
 % Initialise inducing points randomly from X_train
-indices = randperm(n_train);
-sparse_indices = indices(1:n_train_sparse);
-xu = X_train(sparse_indices,:);
+% indices = randperm(n_train);
+% sparse_indices = indices(1:n_train_sparse);
+% xu = X_train(sparse_indices,:);
+xu = lhs(lb,ub,n_train_sparse);
 %xu = [rand(n_train_sparse,1), rand(n_train_sparse,n_dim-1)*2-1];       
 cov = {'apxSparse',cov,xu};                                            % change covariance function to use sparse methods
 
@@ -92,9 +105,15 @@ diff_sparse_spgp = compute_RMSE(ymu_spgp,y_test);
 
 %% Exploring results
 fprintf('Validation results performed on %d test points...\n', n_test)
+if useOld
+    fprintf('RMSE for old GP: %f\n', diff_old)
+end
 fprintf('RMSE for full GP: %f\n', diff_full)
 fprintf('RMSE for sparse SPGP: %f\n', diff_sparse_spgp)
 fprintf('\n')
+if useOld
+   fprintf('Time taken to optimise hyperparameters for old GP: %fs\n', hyperparam_old_time) 
+end
 fprintf('Time taken to optimise hyperparameters for full GP: %fs\n', hyperparam_full_time)
 fprintf('Time taken to optimise hyperparameters for sparse GP: %fs\n', hyperparam_sparse_time)
 
